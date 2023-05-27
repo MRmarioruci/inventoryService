@@ -1,6 +1,6 @@
 const express = require('express');
 /* const cors = require('cors'); */
-const {addProduct, addCountPlan, executeCountPlan, addCount, endCountExecution} = require('./core/controller.js');
+const { addProduct, addCountPlan, checkCountPlan,  endCountExecution, addCountToCountExecution} = require('./core/controller.js');
 
 const app = express();
 app.use(express.json());
@@ -29,9 +29,9 @@ app.post('/addProduct', addProduct)
 */
 app.post('/addCountPlan', addCountPlan)
 /* countplan_id, user_id  */
-app.post('/executeCountPlan', executeCountPlan)
+app.post('/checkCountPlan', checkCountPlan)
 /* Count execution id, user_id, subproduct_id, quantity */
-app.post('/addCount', addCount)
+app.post('/addCountToCountExecution', addCountToCountExecution)
 app.post('/endCountExecution', endCountExecution)
 app.get('/', (req, res) => {
 	res.status(200).send('Oh my.. you found me...');
