@@ -1,4 +1,3 @@
-const { v4: uuidv4 } = require('uuid');
 const utils = require('./utils');
 const actions = require('./actions');
 
@@ -18,102 +17,140 @@ const getUser = (username) => {
 const addProduct = async (req, res) => {
 	const data = req.body;
 	if(!data){
-		utils.log('ERROR', 'INVALID INPUT');
-		return res.json(utils.standardResponse('ERROR', 'INVALID INPUT'))
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
 	}
+	try {
+		const user = await getUser(data.username).catch((e) => { });
+		if (user.type !== 'admin') throw new Error('Access Denied');
+		const productId = await actions.addProduct(data);
+		if (!productId) throw new Error('Product could not be added');
 
-	const user = await getUser(data.username).catch((e) => {});
-	if (user.type !== 'admin') return res.status(500).json('Access denied');
-
-	/* TBI: More validations on the data input needed */
-	const productId = await actions.addProduct(data).catch((err) => {
+		const p = [actions.addCategoriesToProduct(productId, data.categories), actions.addSubProducts(productId, data.subproducts)]
+		Promise.all(p)
+		.then(([categoriesResponse, subproductIds]) => {
+			utils.log('SUCCESS', 'Product added');
+			res.json(utils.standardResponse('SUCCESS', 'Product added'))
+		})
+	} catch (err) {
 		utils.log('ERROR', err);
-	})
-	if (!productId) return res.json(utils.standardResponse('ERROR', 'Could not add product'))
-	
-	const p = [actions.addCategoriesToProduct(productId, data.categories), actions.addSubProducts(productId, data.subproducts)]
-	Promise.all(p)
-	.then(([categoriesResponse, subproductIds]) => {
-		utils.log('SUCCESS', 'All good on product addition!');
-		return res.json('All good on product addition!');
-	})
-	.catch((error) => {
-		utils.log('ERROR', error);
-		return res.status(500).json(error);
-	})
+		res.json(utils.standardResponse('ERROR', err?.message || err))
+	}
 }
 const addCountPlan = async (req, res) => {
 	const data = req.body;
 	if (!data) {
-		utils.log('ERROR', 'INVALID INPUT');
-		return res.json(utils.standardResponse('ERROR', 'INVALID INPUT'))
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
 	}
-
-	const user = await getUser(data.username).catch((e) => { });
-	if (user.type !== 'admin') return res.status(500).json('Access denied');
-
-	/* TBI: More validations on the data input needed */
-	actions.addCountPlan(user.id, data)
-	.then((data) => {
-		console.log(data);
-		utils.log('SUCCESS', 'Plan added');
-		res.json('Plan added');
-	})
-	.catch((err) => {
+	try {
+		const user = await getUser(data.username).catch((e) => { });
+		if (user.type !== 'admin') throw new Error('Access Denied');
+		await actions.addCountPlan(user.id, data);
+		
+		res.json(utils.standardResponse('SUCCESS', 'Count plan added'))
+	} catch (err) {
 		utils.log('ERROR', err);
-		res.status(500).json('Plan could not be added')
-	})
+		res.json(utils.standardResponse('ERROR', err?.message || err))
+	}
 }
 const checkCountPlan = async (req, res) => {
 	const data = req.body;
 	if (!data) {
-		utils.log('ERROR', 'INVALID INPUT');
-		return res.json(utils.standardResponse('ERROR', 'INVALID INPUT'))
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
 	}
+	try {
+		const user = await getUser(data.username).catch((e) => { });
+		if (user.type !== 'admin') throw new Error('Accedd Denied');
+		const status = await actions.checkCountPlan(user.id, data.count_plan_id);
 
-	const user = await getUser(data.username).catch((e) => { });
-	if (user.type !== 'admin') return res.status(500).json('Access denied');
-	
-	actions.checkCountPlan(user.id, data.count_plan_id)
-	.then((data) => {
-		utils.log('SUCCESS', 'Plan checked');
-		res.json(data);
-	})
-	.catch((err) => {
+		res.json(utils.standardResponse('SUCCESS', `Should start: ${status}`))
+	} catch (err) {
 		utils.log('ERROR', err);
-		res.status(500).json('Plan could not be checked')
-	})
-
+		res.json(utils.standardResponse('ERROR', err?.message || err))
+	}
 }
 const endCountExecution = async (req, res) => {
 	const data = req.body;
 	if (!data) {
-		utils.log('ERROR', 'INVALID INPUT');
-		return res.json(utils.standardResponse('ERROR', 'INVALID INPUT'))
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
 	}
+	try {
+		const user = await getUser(data.username);
+		if (user.type !== 'admin') throw new Error('Access Denied');
+		await actions.endCountExecution(data.count_execution_id)
 
-	const user = await getUser(data.username).catch((e) => { });
-	if (user.type !== 'admin') return res.status(500).json('Access denied');
-
-	const edited = await actions.endCountExecution(data.count_execution_id).catch((err) => {
+		res.json(utils.standardResponse('SUCCESS', 'Count execution ended'))	
+	} catch (err) {
 		utils.log('ERROR', err);
-	})
-	if (!edited) return res.json(utils.standardResponse('ERROR', 'Could not edit count execution'))
-	res.json('success');
+		res.json(utils.standardResponse('ERROR', err?.message || err))
+	}
 }
 const addCountToCountExecution = async (req, res) => {
 	const data = req.body;
 	if (!data) {
-		utils.log('ERROR', 'INVALID INPUT');
-		return res.json(utils.standardResponse('ERROR', 'INVALID INPUT'))
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
 	}
-	const user = await getUser(data.username).catch((e) => { });
-	const counted = await actions.addCountToCountExecution(user.id, data.count_execution_id, data.barcode, data.quantity)
-	.catch((err) => {
+	try {
+		const user = await getUser(data.username);
+		await actions.addCountToCountExecution(user.id, data.count_execution_id, data.barcode, data.quantity)
+
+		res.json(utils.standardResponse('SUCCESS', 'Count increased'))	
+	} catch (err) {
 		utils.log('ERROR', err);
-		return res.json(utils.standardResponse('ERROR', err))
-	})
-	res.json('Success');
+		res.json(utils.standardResponse('ERROR', err?.message || err))
+	}
+}
+const getPricingPerProduct = async (req, res) => {
+	const data = req.body;
+	if(!data) {
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
+	}
+	try {
+		const calculated = await actions.getPricingPerProduct(data.count_execution_id);
+		res.json(utils.standardResponse('SUCCESS', calculated));
+	} catch (err) {
+		utils.log('ERROR', err?.message || err);
+		res.json(utils.standardResponse('ERROR', err?.message || err));
+	}
+}
+const getTotalPricing = async(req, res) => {
+	const data = req.body;
+	if(!data) {
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
+	}
+	try {
+		const pricingPerProduct = await actions.getPricingPerProduct(data.count_execution_id);
+		if(!pricingPerProduct) throw new Error('No pricing per product generated');
+
+		const calculated = await actions.getTotalPricing(pricingPerProduct);
+		res.json(utils.standardResponse('SUCCESS', calculated));
+	} catch (err) {
+		utils.log('ERROR', err?.message || err);
+		res.json(utils.standardResponse('ERROR', err?.message || err));
+	}
+}
+const getPricingByCategory = async(req, res) => {
+	const data = req.body;
+	if(!data) {
+		utils.log('ERROR', 'Invalid input');
+		return res.json(utils.standardResponse('ERROR', 'Invalid input'))
+	}
+	try {
+		const pricingPerProduct = await actions.getPricingPerProduct(data.count_execution_id);
+		if (!pricingPerProduct) throw new Error('No pricing per product generated');
+
+		const calculated = await actions.getPricingByCategory(pricingPerProduct);
+		res.json(utils.standardResponse('SUCCESS', calculated));
+	} catch (err) {
+		utils.log('ERROR', err?.message || err);
+		res.json(utils.standardResponse('ERROR', err?.message || err));
+	}
 }
 
 module.exports = {
@@ -122,4 +159,7 @@ module.exports = {
 	endCountExecution: endCountExecution,
 	checkCountPlan: checkCountPlan,
 	addCountToCountExecution: addCountToCountExecution,
+	getPricingPerProduct: getPricingPerProduct,
+	getTotalPricing: getTotalPricing,
+	getPricingByCategory: getPricingByCategory,
 }

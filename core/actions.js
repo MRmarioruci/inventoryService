@@ -20,7 +20,6 @@ const getUserByUsername = (username) => {
 			}
 			resolve(res.length > 0 ? res[0] : null);
 		})
-		
 	})
 }
 
@@ -31,7 +30,8 @@ const addProduct = (product) => {
 		const q = "INSERT INTO `Product`(`name`, `price`) VALUES(?, ?)"
 		connection.query(q, [product.name, product.price], (err, res) => {
 			if(err){
-				return reject(err);
+				utils.log('ERROR', `Product error: ${err}`);
+				return reject('Product addition error');
 			}
 			utils.log('INFO', `Product: ${res.insertId} added`);
 			resolve(res.insertId);
@@ -73,9 +73,9 @@ const addSubProducts = (productId, subproducts) => {
 				const res = await connectionQuery(q, [subproduct.title]);
 				const subproductId = res.insertId;
 				await generateBarcodes(subproductId).catch((err) => utils.log('ERROR', `Barcodes addition error: ${err}`));
-				await attachSubProductToProduct(productId, subproductId).catch((err) => utils.log('ERROR', `Subproduct attachment error: ${err}`));
+				await attachSubProductToProduct(productId, subproductId, subproduct.quantity).catch((err) => utils.log('ERROR', `Subproduct attachment error: ${err}`));
 				subproductIds.push(subproductId);
-				console.log(`Subproduct ${subproduct.title} added`);
+				utils.log('SUCCESS', `Subproduct ${subproduct.title} added`);
 			}
 			
 			if (subproductIds.length === subproducts.length) {
@@ -89,17 +89,17 @@ const addSubProducts = (productId, subproducts) => {
 		}
 	})
 }
-const attachSubProductToProduct = (productId, subproductId) => {
+const attachSubProductToProduct = (productId, subproductId, quantity) => {
 	return new Promise((resolve, reject) => {
-		if(!productId || !subproductId) return reject('Invalid arguments on subproduct attachement');
+		if(!productId || !subproductId || !quantity) return reject('Invalid arguments on subproduct attachement');
 		
-		const q = "INSERT INTO `Product_Has_SubProduct`(`product_id`, `subproduct_id`) VALUES(?, ?)"
-		connection.query(q, [productId, subproductId], (err, res) => {
+		const q = "INSERT INTO `Product_Has_SubProduct`(`product_id`, `subproduct_id`, `quantity`) VALUES(?, ?, ?)"
+		connection.query(q, [productId, subproductId, quantity], (err, res) => {
 			if(err){
 				utils.log('ERROR', `Could not attach Subproduct: ${subproductId} to Product: ${productId}: ${err}`);
 				return reject(`Could not attach Subproduct: ${subproductId} to Product: ${productId}`)
 			}
-			resolve();
+			resolve(true);
 		})
 	})
 }
@@ -108,7 +108,7 @@ const generateBarcodes = (subproductId) => {
 		if(!subproductId) return reject('Invalid arguments on barcode generation');
 		
 		const q = "INSERT INTO `SubProductBarcodes`(`id`, `subproduct_id`) VALUES(?, ?)"
-		const barcodes = new Array(5);
+		const barcodes = new Array(2);
 		let added = 0;
 		try {
 			for (const idx of barcodes) {
@@ -119,7 +119,7 @@ const generateBarcodes = (subproductId) => {
 			
 			if (added === barcodes.length) {
 				utils.log('INFO', `Barcodes added`);
-				resolve();
+				resolve(true);
 			} else {
 				utils.log('ERROR', `Not all barcodes could be added`);
 				reject(`Not all barcodes could be added`);
@@ -142,7 +142,8 @@ const addCountPlan = (owner_id, data) => {
 			/* TBI Add subscribers to the plan */
 			resolve(res.insertId);
 		} catch (err) {
-			reject(err);
+			utils.log('ERROR', `Countplan error: ${err} `);
+			reject('Count Plan could not be added');
 		}
 	})
 }
@@ -197,38 +198,29 @@ const checkCountPlan = (owner_id = null, count_plan_id) => {
 				if (currentDate.getDay() !== parseInt(day_of_week)) return resolve(false);
 				// Check if the current time is past the time speficied in the CounPlan
 				if (!isAfterStartTime(currentDate, start_time)) return resolve(false);
-				const started = await startCountExecution(count_plan_id).catch((err) => utils.log("ERROR", 'Could not start count execution'))
-				resolve(started || false);
+				startCountExecution(count_plan_id)
+				.then((started) => {
+					resolve(started || false);
+				})
+				.catch((err) => {
+					reject(err)
+				})
 			} else if (repetition_type === 'monthly') {
 				// Calculate the current week of the month
 				const currentWeekOfMonth = Math.ceil(currentDate.getDate() / 7);
 				// Check if the current day of the week matches the day_of_week specified in the CountPlan
 				if (currentDate.getDay() !== parseInt(day_of_week) || (currentWeekOfMonth !== repetition_interval)) return resolve(false);
 				if (!isAfterStartTime(currentDate, start_time)) return resolve(false);
-				const started = await startCountExecution(count_plan_id).catch((err) => utils.log("ERROR", 'Could not start count execution'))
-				resolve(started || false);
+				startCountExecution(count_plan_id)
+				.then((started) => {
+					resolve(started || false);
+				})
+				.catch((err) => {
+					reject(err)
+				})
 			} else if (repetition_type === 'interval') {
-				// You could have an extra type. For example run every 10 days.
+				// TBI: Another extra helpful type would be interval. For example run every 10 days.
 				// Fetch the latest completed CountExecution for the CountPlan
-				const latestExecution = await getLatestCompletedCountExecution(count_plan_id);
-				
-				// Check if the latestExecution exists and its end date is not null
-				if (latestExecution && latestExecution.end_date) {
-					const endDate = new Date(latestExecution.end_date);
-					const diffInTime = currentDate.getTime() - endDate.getTime();
-					const diffInDays = Math.ceil(diffInTime / (1000 * 60 * 60 * 24));
-					
-					if (diffInDays >= repetition_interval) {
-						// Start the CountExecution
-						resolve('Start CountExecution');
-					} else {
-						// No need to start the CountExecution
-						resolve('No need to start CountExecution');
-					}
-				} else {
-					// No previous completed CountExecution found, start the CountExecution
-					resolve('Start CountExecution');
-				}
 			} else {
 				// Handle other repetition types if needed
 				reject('Unsupported repetition_type');
@@ -239,17 +231,20 @@ const checkCountPlan = (owner_id = null, count_plan_id) => {
 	});
 };
 const startCountExecution = (count_plan_id) => {
-	return new Promise((resolve, reject) => {
+	return new Promise( async(resolve, reject) => {
 		if (!count_plan_id) return reject('Invalid start count execution parameters');
 
-		/* TBI: If we only allow one CountExecution a time then we have to check if one is running */
+		const countExecution = await getCountExecution(count_plan_id, null, 'ongoing');
+		if (countExecution?.[0]) return reject(`A CountExecution is already running for CountPlan: ${count_plan_id}`);
+
 		const q = "INSERT INTO `CountExecution`(`count_plan_id`, `status`, `dateStarted`) \
 		VALUES(?, 'ongoing', NOW())";
 		connection.query(q, [count_plan_id], (err, res) => {
 			if (err) {
-				return reject(err);
+				utils.log("ERROR", err)
+				return reject("Could not start count execution");
 			}
-			utils.log('INFO', `Startedd CountExecution: ${res.insertId} for CountPlan: ${count_plan_id}`);
+			utils.log('INFO', `Started CountExecution: ${res.insertId} for CountPlan: ${count_plan_id}`);
 			resolve(res.insertId);
 		})
 	})
@@ -278,8 +273,7 @@ const getCountExecution = (count_plan_id=null, count_execution_id=null, status=n
 		WHERE 1 \
 		::__COUNT_PLAN_ID__:: \
 		::__COUNT_EXECUTION_ID__:: \
-		::__STATUS__:: \
-		";
+		::__STATUS__::";
 		let params = [];
 		if (count_plan_id) {
 			q = q.replace('::__COUNT_PLAN_ID__::', " AND `CountPlan`.`id` = ?")
@@ -327,12 +321,12 @@ const addCountToCountExecution = (user_id, count_execution_id, barcode, quantity
 	return new Promise(async (resolve, reject) => {
 		try {
 			const countExecution = await getCountExecution(null, count_execution_id)
-			.catch((err) => {})
+			.catch((err) => { return reject(err)})
 			if(!countExecution) return reject('Invalid CountExecution');
 			if(countExecution[0].status !== 'ongoing') return reject('The given CountExecution has been terminated');
 
 			const subproduct = await getSubProduct(barcode)
-			.catch((err) => {})
+			.catch((err) => { return reject(err)})
 			if (!subproduct) return reject('Invalid SubProduct');
 			
 			const q = "INSERT INTO `UserProductCounts`(`count_execution_id`,`subproduct_id`, `quantity`, `user_id`) VALUES(?, ?, ?, ?)";
@@ -347,7 +341,150 @@ const addCountToCountExecution = (user_id, count_execution_id, barcode, quantity
 		}
 	})
 }
+const getProducts = () => {
+	return new Promise((resolve, reject) => {
+		let q = "SELECT \
+			`Product`.`id`, \
+			`Product`.`name`, \
+			`Product`.`price`, \
+			`ProductCategories`.`id` AS `category_id`, \
+			`ProductCategories`.`title` AS `category_title`, \
+			`Product_Has_SubProduct`.`quantity`, \
+			`SubProduct`.`id` AS `subproduct_id`, \
+			`SubProduct`.`title` AS `subproduct_name` \
+		FROM `Product`\
+		LEFT JOIN `Product_Has_Categories` ON `Product_Has_Categories`.`product_id` = `Product`.`id` \
+		LEFT JOIN `ProductCategories` ON `ProductCategories`.`id` = `Product_Has_Categories`.`category_id` \
+		LEFT JOIN `Product_Has_SubProduct` ON `Product_Has_SubProduct`.`product_id` = `Product`.`id` \
+		LEFT JOIN `SubProduct` ON `SubProduct`.`id` = `Product_Has_SubProduct`.`subproduct_id` \
+		WHERE 1 \
+		ORDER BY `Product`.`id` \
+		";
+		connection.query(q, [], (err, res) => {
+			if (err) {
+				utils.log('ERROR', `Could not get products ${err}`)
+				return reject('Could not get products');
+			}
+			if(!res) return reject('No products');
 
+			let last_id = null;
+			let out = [];
+			let i = -1;
+			res.forEach(row => {
+				if (last_id !== row.id) {
+					last_id = row.id;
+					i++;
+					out.push({
+						id: row.id,
+						name: row.name,
+						price: row.price,
+						categories: {},
+						subproducts: {},
+					})
+				}
+				if (row.subproduct_id) {
+					out[i]['subproducts'][row.subproduct_id] = {
+						id: row.subproduct_id,
+						title: row.subproduct_name,
+						quantity: row.quantity
+					};
+				}
+				if (row.category_id) {
+					out[i]['categories'][row.category_id] = {
+						id: row.category_id,
+						title: row.category_title
+					};
+				}
+			});
+			out = out.map((row, idx) => {
+				return {...row, ...{
+					categories: Object.values(row.categories),
+					subproducts: Object.values(row.subproducts),
+				}}
+			})
+			resolve(out);
+		})
+	})
+}
+const getCountedSubproducts = (count_execution_id) => {
+	return new Promise((resolve, reject) => {
+		let q = "SELECT \
+			`UserProductCounts`.`subproduct_id`, \
+			SUM(`UserProductCounts`.`quantity`) AS `count`, \
+			`SubProduct`.`id`, \
+			`SubProduct`.`title` \
+			FROM `UserProductCounts` \
+			JOIN `CountExecution` ON `CountExecution`.`id` = `UserProductCounts`.`count_execution_id` \
+			JOIN `SubProduct` ON `SubProduct`.`id` = `UserProductCounts`.`subproduct_id` \
+			WHERE `UserProductCounts`.`count_execution_id` = ? \
+			GROUP BY `UserProductCounts`.`count_execution_id`, `UserProductCounts`.`subproduct_id` \
+		";
+		connection.query(q, [count_execution_id], (err, res) => {
+			if (err) {
+				utils.log('ERROR', `Could not get coutns ${err}`)
+				return reject('Could not get counts');
+			}
+			if (!res) return reject('No counts');
+			resolve(res);
+		})
+	})
+}
+const getPricingPerProduct = (count_execution_id) => {
+	return new Promise(async (resolve, reject) => {
+		try {
+			const products = await getProducts();
+			if(products.length === 0) throw new Error('No products');
+
+			const countedSubProducts = await getCountedSubproducts(count_execution_id);
+			if(!countedSubProducts) throw new Error('No counts');
+
+			// Calculate the price of complete products per product
+			const completeProducts = products.map(product => {
+				let o = {
+					id: product.id,
+					name: product.name,
+					categories: product.categories,
+					totalPrice: 0
+				};
+				const totalSubproductCounts = product.subproducts.reduce((acc, subproduct) => {
+					const countedSubproduct = countedSubProducts.find(cs => cs.subproduct_id === subproduct.id );
+					if(countedSubproduct){
+						acc = [...acc, ...[Math.floor(countedSubproduct.count / subproduct.quantity)]];
+					}
+					return acc;
+				}, []);
+				if (totalSubproductCounts.length === product.subproducts.length){
+					const maxComplete = Math.min(...totalSubproductCounts);
+					o.totalPrice = maxComplete * product.price;
+				}
+				return o;
+			});
+			resolve(completeProducts);
+		} catch (err) {
+			reject(err);
+		}
+	})
+}
+const getTotalPricing = (pricingPerProduct) => {
+	return new Promise((resolve, reject) => {
+		const totalPrice = pricingPerProduct.reduce((total, product) => {
+			return total + product.totalPrice;
+		}, 0)
+		resolve(totalPrice);
+	})
+}
+const getPricingByCategory = (pricingPerProduct) => {
+	return new Promise((resolve, reject) => {
+		const res = {};
+		pricingPerProduct.forEach((product) => {
+			product.categories.forEach((category) => {
+				if(!res.hasOwnProperty(category.title)) res[category.title] = 0;
+				res[category.title] += product.totalPrice;
+			})
+		})
+		resolve(res);
+	})
+}
 module.exports = {
 	addProduct: addProduct,
 	addCountPlan: addCountPlan,
@@ -355,7 +492,9 @@ module.exports = {
 	addCategoriesToProduct: addCategoriesToProduct,
 	addSubProducts: addSubProducts,
 	getUserByUsername: getUserByUsername,
-	endCountExecution: endCountExecution,
 	checkCountPlan: checkCountPlan,
 	addCountToCountExecution: addCountToCountExecution, 
+	getPricingPerProduct: getPricingPerProduct,
+	getTotalPricing: getTotalPricing,
+	getPricingByCategory: getPricingByCategory,
 }

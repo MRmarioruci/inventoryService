@@ -6,10 +6,10 @@ const { red, green, blue, yellow } = require('colorette');
 	'INFO': 'blue'
 }; */
 module.exports = {
-	standardResponse: (type, data) => {
+	standardResponse: (status, data) => {
 		return {
 			data: data,
-			status: type
+			status: status
 		}	
 	},
 	log: (type, data) => {
