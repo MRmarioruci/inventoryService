@@ -26,11 +26,20 @@ Build
 The server will restart a few times until the database has completed all operations and it connects succesfully
 
 ## Endpoints
+ For testing ease
+	I have added a phpmyadmin container so you can access the database quickly and easily
 
-- For testing ease i have added 3 users
-admin - counter 1 - counter 2.
+	- Go to http://localhost:8080
+	- Username: user , Password: 1234567890
 
-- For testing ease i have added 2 categories, Food (id = 1) and Furniture(id = 2)
+Table User
+
+	I have already added 3 users so that you can test quickly.
+	admin, counter 1 and counter 2.
+
+Table ProductCategories
+
+	I have already added 2 categories, Food and Furniture
 
 
 - [x] Endpoint to add Products.

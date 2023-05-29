@@ -11,6 +11,7 @@ services:
     ports:
       - $DB_LOCAL_PORT:$DB_DOCKER_PORT
     restart: always
+
   app:
     depends_on:
       - db
@@ -28,5 +29,11 @@ services:
       - DB_PORT=$DB_DOCKER_PORT
     stdin_open: true
     tty: true
-volumes:
-  db:
+
+  phpmyadmin:
+    build:
+      context: .
+      dockerfile: Dockerfile.phpmyadmin
+    restart: always
+    ports:
+      - 8080:80
