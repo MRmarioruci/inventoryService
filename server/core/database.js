@@ -1,4 +1,4 @@
-require('dotenv').config({path: './core/.env'});
+require('dotenv');
 const mysql = require('mysql');
 const utils = require('./utils');
 let connection;
@@ -13,7 +13,8 @@ const getConnection = () => {
 		connection.connect((err) => {
 			if (err) {
 				utils.log('ERROR', err.stack)
-				return;
+				console.log('here');
+				process.exit();
 			}
 			utils.log('SUCCESS', 'Connected to database')
 		});
