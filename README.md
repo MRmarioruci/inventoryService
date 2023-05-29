@@ -163,6 +163,7 @@ Table ProductCategories
 		```
 
 - [x] Endpoint to add UserProductCounts to CountExecution (allowed for admin and counter roles).
+	(Make sure to go through phpmyadmin and get the relative barcodes. Simulates scanning a product)
 	- Url: http://localhost:5000/addCountToCountExecution
 	- Payload:
 		``` json
@@ -193,7 +194,7 @@ Table ProductCategories
 		// Replace values accordingly
 		{
 			"username": "admin",
-			"count_execution_id": 2
+			"count_execution_id": 1
 		}
 		```
 - [x] Calculate the total pricing of all Products based on the counted quantity in a CountExecution.
@@ -203,7 +204,7 @@ Table ProductCategories
 		// Replace values accordingly
 		{
 			"username": "admin",
-			"count_execution_id": 2
+			"count_execution_id": 1
 		}
 		```
 - [x] Calculate the pricing of Products by category in a CountExecution.
@@ -213,6 +214,6 @@ Table ProductCategories
 		// Replace values accordingly
 		{
 			"username": "admin",
-			"count_execution_id": 2
+			"count_execution_id": 1
 		}
 		```
