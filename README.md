@@ -25,7 +25,9 @@ Build
 
 The server will restart a few times until the database has completed all operations and it connects succesfully
 
-## Endpoints
+## Endpoints / Testing
+ These steps follow the test case specified in the pdf file.
+ 
  For testing ease
 	I have added a phpmyadmin container so you can access the database quickly and easily
 
