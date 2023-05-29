@@ -13,7 +13,6 @@ const getConnection = () => {
 		connection.connect((err) => {
 			if (err) {
 				utils.log('ERROR', err.stack)
-				console.log('here');
 				process.exit();
 			}
 			utils.log('SUCCESS', 'Connected to database')
