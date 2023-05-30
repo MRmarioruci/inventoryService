@@ -3,7 +3,7 @@ An inventory service use case with some basic endpoints and logic.
 
 ## Deliverables
 	1. /server
-	Inside this folder you fill find the project main code and logic.
+	Inside this directory you fill find the project main code and logic.
 
 	2. /db
 	Inside this directory you will find the init.sql file which is the database schema of the project
