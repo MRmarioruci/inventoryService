@@ -25,3 +25,5 @@ Notes - Open ended discussion
 		1. Logs might need a bit more work
 		2. No typescript use
 		3. Automated testing.
+		
+	8) Input validations on server
