@@ -1,5 +1,9 @@
 # Inventory Service
-An inventory service use case with some basic endpoints and logic. 
+An inventory service use case with some basic endpoints and logic.
+Read UseCase.pdf for more details
+
+# Goal
+	Understanding and translating product needs. Considering performance and scalability.
 
 ## Deliverables
 	1. /server
